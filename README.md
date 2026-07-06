@@ -12,7 +12,7 @@
 ![STT](https://img.shields.io/badge/STT-faster--whisper-00A67E)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Status](https://img.shields.io/badge/status-building%20in%20public-orange)
-![Version](https://img.shields.io/badge/version-0.1.0-lightgrey)
+![Version](https://img.shields.io/badge/version-0.2.0-lightgrey)
 
 </div>
 
@@ -103,9 +103,9 @@ above is being built out toward streaming and memory.
 
 - [x] Real-time **streaming** transcription *(prototype)* — enable with `RESONODE_STREAMING=true`; live captions next
 - [ ] True **speaker diarization** (beyond Discord's per-speaker streams)
-- [ ] **Live translation**
-- [ ] **AI voice moderation**
-- [ ] Persistent **RAG "server brain"** memory over voice + text history
+- [x] **Live translation** *(streaming mode: `/translate` + your LLM key)*
+- [x] **AI voice moderation** *(streaming mode: `/moderation` + your LLM key)*
+- [x] Persistent **RAG "server brain"** memory *(v1: `RESONODE_MEMORY=vector` — local embeddings, semantic `/ask`)*
 - [ ] **Searchable** dashboard for logs and recall
 - [ ] **Discord App Directory** listing + Premium App subscription tier
 
@@ -117,7 +117,14 @@ above is being built out toward streaming and memory.
 | `/leave` | Leaves, transcribes the session, and posts the transcript file. |
 | `/ping`  | Quick "is the bot alive?" check.                                |
 
-*(Searchable history — `/transcript`, `/search`, `/summary`, `/ask` — comes online with the memory features; captions and translate follow.)*
+Also available today: `/transcript`, `/search`, `/summary`*, `/ask`* over stored
+history, and — in streaming mode — `/translate <language> [#channel]` to
+live-translate spoken lines as they appear (`off` disables) and
+`/moderation on|off [#channel]`* for AI voice-moderation alerts. Set
+`RESONODE_AUTO_SUMMARY=true`* to get a decisions/action-items summary after
+every session.
+*\* `/summary`, `/ask` synthesis, and `/translate` need an LLM configured
+(`RESONODE_LLM=openai|anthropic` + API key); everything else runs fully local.*
 
 Each transcript line looks like:
 
@@ -165,6 +172,15 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe bot.py        # or just double-click start.bat
 ```
+
+> **⚠️ py-cord + Discord E2EE (DAVE):** Discord enforced end-to-end encrypted
+> voice in March 2026, and released py-cord (≤ 2.8.0) cannot *receive* voice
+> yet. Until py-cord 2.9 ships, install the DAVE-receive build after the step
+> above:
+>
+> ```powershell
+> .\.venv\Scripts\python.exe -m pip install --upgrade --force-reinstall "py-cord[voice] @ git+https://github.com/Pycord-Development/pycord@refs/pull/3159/head"
+> ```
 
 First launch downloads the Whisper model (~150 MB for `base`) and prints
 `Resonode online as ...` when ready. Then: join a voice channel, run `/join`,

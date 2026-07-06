@@ -1,3 +1,7 @@
+# NOTE (2026-07): Discord enforced the DAVE E2EE voice protocol on 2026-03-02.
+# Voice RECEIVE is broken on py-cord <= 2.8.0 (see pycord issue #3139).
+# Until 2.9.0 ships, install the DAVE-receive PR instead:
+#   pip install "py-cord[voice] @ git+https://github.com/Pycord-Development/pycord@refs/pull/3159/head"
 py-cord[voice]>=2.6.1
 faster-whisper>=1.0.3
 python-dotenv>=1.0.1
@@ -7,3 +11,4 @@ numpy>=1.26
 # deepgram-sdk>=3.0     # RESONODE_STT=deepgram   (cloud streaming STT, low latency, paid)
 # openai>=1.0           # RESONODE_LLM=openai      (summaries / translation / moderation)
 # anthropic>=0.40       # RESONODE_LLM=anthropic   (summaries / translation / moderation)
+# fastembed>=0.3        # RESONODE_MEMORY=vector   (local embeddings for the server brain)

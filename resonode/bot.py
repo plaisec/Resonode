@@ -5,9 +5,19 @@ from __future__ import annotations
 
 import struct
 import sys
+import warnings
 from pathlib import Path
 
 import discord
+
+# py-cord deprecates start_recording's *args, but its own AudioReader only
+# invokes the finish callback when args are non-empty (reader.py:
+# `if self.after and self.args:`), so we must keep passing the channel arg or
+# /leave never posts transcripts. Silence just that warning until py-cord
+# fixes the guard (pycord PR #3159 / 2.9.x).
+warnings.filterwarnings(
+    "ignore", message=r"'args' parameter is deprecated since 2\.7"
+)
 from dotenv import load_dotenv
 
 from .config import Config
@@ -52,9 +62,9 @@ def build_bot(config, storage, stt, llm, memory) -> discord.Bot:
     # Recording vs live streaming share the /join and /leave names, so load exactly one.
     if config.streaming:
         from .cogs.streaming import StreamingCog
-        bot.add_cog(StreamingCog(bot, config, stt, storage))
+        bot.add_cog(StreamingCog(bot, config, stt, storage, llm))
     else:
-        bot.add_cog(RecordingCog(bot, config, stt, storage))
+        bot.add_cog(RecordingCog(bot, config, stt, storage, llm))
     bot.add_cog(QueryCog(bot, config, storage, llm, memory))
     return bot
 
@@ -71,6 +81,8 @@ def main() -> None:
     memory = get_memory(config, storage)
     print(f"Resonode starting — mode={'streaming' if config.streaming else 'batch'}, "
           f"STT={stt.name}, LLM={llm.name}, model={config.whisper_model} on {config.whisper_device}")
+    if config.auto_summary and not llm.available:
+        print("NOTE: RESONODE_AUTO_SUMMARY=true but no LLM is configured — summaries will be skipped.")
     bot = build_bot(config, storage, stt, llm, memory)
     try:
         bot.run(config.token)

@@ -55,10 +55,12 @@ class LocalWhisperSTT(BaseSTT):
     """faster-whisper on local hardware. Model loads lazily on first use."""
     name = "local-whisper"
 
-    def __init__(self, model: str = "base", device: str = "cpu", compute_type: str = "int8"):
+    def __init__(self, model: str = "base", device: str = "cpu", compute_type: str = "int8",
+                 language: str = ""):
         self.model_name = model
         self.device = device
         self.compute_type = compute_type
+        self.language = language or ""  # pinned ISO code, or "" for auto-detect
         self._model = None
 
     def _ensure_model(self):
@@ -69,7 +71,10 @@ class LocalWhisperSTT(BaseSTT):
 
     def _transcribe_sync(self, path: str) -> list[Segment]:
         model = self._ensure_model()
-        segments, info = model.transcribe(path, vad_filter=True)
+        # Pinning the language skips Whisper's auto-detect, which misfires on
+        # short clips (randomly "detecting" French and the like).
+        segments, info = model.transcribe(path, vad_filter=True,
+                                          language=self.language or None)
         lang = getattr(info, "language", None)
         return [
             Segment(seg.start, seg.end, seg.text.strip(), lang=lang)
@@ -99,4 +104,5 @@ def get_stt(config) -> BaseSTT:
     backend = (getattr(config, "stt_backend", "local") or "local").lower()
     if backend == "deepgram":
         return DeepgramSTT(getattr(config, "deepgram_api_key", None))
-    return LocalWhisperSTT(config.whisper_model, config.whisper_device, config.compute_type)
+    return LocalWhisperSTT(config.whisper_model, config.whisper_device, config.compute_type,
+                           getattr(config, "stt_language", ""))

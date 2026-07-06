@@ -1,6 +1,6 @@
 # Resonode — Privacy Policy
 
-**Last updated: June 27, 2026**
+**Last updated: July 4, 2026**
 
 This Privacy Policy explains how the Resonode Discord application ("Resonode,"
 "the bot," "we") handles information when it is added to a Discord server.
@@ -47,8 +47,12 @@ collect payment information.
   optional services. When enabled, the relevant data is sent to that provider
   and handled under **their** privacy policy:
   - **Deepgram** (cloud speech-to-text) — receives voice audio. https://deepgram.com/privacy
-  - **OpenAI** (summaries / translation / moderation) — receives transcript text. https://openai.com/policies/privacy-policy
+  - **OpenAI** (summaries / translation / moderation / embeddings) — receives transcript text. https://openai.com/policies/privacy-policy
   - **Anthropic** (summaries / translation / moderation) — receives transcript text. https://www.anthropic.com/legal/privacy
+
+  The default **vector memory** backend computes embeddings locally
+  (fastembed) — transcript text stays on the operator's machine unless the
+  OpenAI embeddings backend is explicitly enabled.
   These are **off by default**. If the instance you use has them enabled, the
   operator must disclose it.
 - **Discord.** All interaction is delivered through Discord and is also subject

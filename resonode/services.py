@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+import numpy as np
+
 
 # --------------------------------------------------------------------------- LLM
 class BaseLLM(ABC):
@@ -145,6 +147,53 @@ class KeywordMemory(BaseMemory):
         return list(seen.values())[:k]
 
 
+class VectorMemory(BaseMemory):
+    """Semantic recall: embeddings stored in SQLite, cosine top-k via numpy.
+
+    Indexing is lazy — each recall first embeds any not-yet-indexed utterances
+    for the guild, so write paths stay untouched and old history backfills
+    itself on first use. Falls back to keyword recall if the embedder fails
+    (e.g. fastembed not installed).
+    """
+    name = "vector"
+
+    def __init__(self, storage, embedder, fallback: BaseMemory | None = None):
+        self.storage = storage
+        self.embedder = embedder
+        self.fallback = fallback or KeywordMemory(storage)
+
+    def _backfill(self, guild_id, batch=256):
+        while True:
+            rows = self.storage.unembedded_utterances(guild_id, self.embedder.model, limit=batch)
+            if not rows:
+                return
+            mat = self.embedder.embed([r["text"] for r in rows])
+            self.storage.add_embeddings(
+                guild_id, self.embedder.model, int(mat.shape[1]),
+                [(r["id"], mat[i].tobytes()) for i, r in enumerate(rows)],
+            )
+            if len(rows) < batch:
+                return
+
+    def recall(self, guild_id, query, k=8):
+        try:
+            self._backfill(guild_id)
+            stored = self.storage.guild_embeddings(guild_id, self.embedder.model)
+            if not stored:
+                return []
+            ids = [uid for uid, _ in stored]
+            mat = np.vstack([np.frombuffer(blob, dtype=np.float32) for _, blob in stored])
+            q = self.embedder.embed([query])[0]
+            top = np.argsort(mat @ q)[::-1][:k]
+            return self.storage.utterances_by_ids([ids[i] for i in top])
+        except Exception as exc:
+            print(f"[resonode] vector recall failed ({exc}); falling back to keyword search.")
+            return self.fallback.recall(guild_id, query, k)
+
+
 def get_memory(config, storage) -> BaseMemory:
-    # "vector" backend (embeddings + pgvector/Qdrant) is the roadmap upgrade.
+    backend = (getattr(config, "memory_backend", "keyword") or "keyword").lower()
+    if backend == "vector":
+        from .embeddings import get_embedder  # lazy — keeps the default path light
+        return VectorMemory(storage, get_embedder(config))
     return KeywordMemory(storage)

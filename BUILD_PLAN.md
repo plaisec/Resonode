@@ -62,16 +62,25 @@ Storage  (sessions, utterances)  resonode/storage.py   ← SQLite → Postgres
 
 - **Phase 1 — Foundation (DONE).** Package, config, storage, pluggable
   STT/LLM/memory seams, ported recording, search/ask over history, unit tests.
-- **Phase 2 — Real-time streaming (PROTOTYPE — built).** Custom voice sink →
-  `UtteranceChunker` → STT per finished utterance → live transcript lines.
-  Enable with `RESONODE_STREAMING=true`. Pure logic is unit-tested; the live
-  voice path needs a Discord token + test server to validate and tune (idle/VAD
-  thresholds, py-cord `write()` data shape).
-- **Phase 3 — LLM features live.** Auto-summary on `/leave`, a live-translation
-  channel, and voice-moderation alerts. Interfaces already exist.
-- **Phase 4 — Server brain (vector RAG).** Embeddings + pgvector/Qdrant behind
-  `BaseMemory` (`VectorMemory`); cited answers; optional Mem0/Zep adapter.
-  `KeywordMemory` is the working v0.
+- **Phase 2 — Real-time streaming (DONE — validated live 2026-07-04).** Custom
+  voice sink → `UtteranceChunker` → STT per finished utterance → live
+  transcript lines. Enable with `RESONODE_STREAMING=true`. Runs on the
+  py-cord ≥ 2.9 DAVE receive API (`VoiceData.pcm`, Member-keyed speakers);
+  idle/VAD thresholds are env-tunable (`RESONODE_STREAM_IDLE_MS`,
+  `RESONODE_VAD_*`). Pure logic + sink shapes are unit-tested.
+- **Phase 3 — LLM features live (BUILT — live validation with an API key
+  pending).** Shipped 2026-07-04: `/translate` live translation and
+  `/moderation` voice alerts (streaming mode, per-guild persisted settings),
+  plus auto-summary on `/leave` in both modes via `RESONODE_AUTO_SUMMARY`.
+  All provider-agnostic behind `BaseLLM` (`RESONODE_LLM=openai|anthropic`).
+- **Phase 4 — Server brain (vector RAG) (v1 BUILT).** `VectorMemory` shipped
+  2026-07-04: pluggable embeddings (`resonode/embeddings.py` — local fastembed
+  by default, OpenAI opt-in), vectors in SQLite, numpy cosine top-k, lazy
+  self-backfilling index, keyword fallback. Enable with
+  `RESONODE_MEMORY=vector` + `pip install fastembed`. `/ask` answers cite
+  [timestamp] speaker via the existing LLM prompt. Hosted-tier upgrade path:
+  pgvector/Qdrant behind the same `Storage`/`BaseMemory` seams; optional
+  Mem0/Zep adapter still on the roadmap.
 - **Phase 5 — Hosting & scale.** Always-on host, Postgres, per-guild
   concurrency, GPU Whisper or Deepgram for the low-latency tier.
 - **Phase 6 — Monetize.** Discord App Directory + Premium Apps subscription /
@@ -81,8 +90,9 @@ Storage  (sessions, utterances)  resonode/storage.py   ← SQLite → Postgres
 
 - **New STT backend:** subclass `BaseSTT`, return it from `get_stt()`.
 - **New LLM provider:** subclass `_ChatLLM`, add to `get_llm()`.
-- **Vector memory:** implement `VectorMemory(BaseMemory)` with embeddings; switch
-  `get_memory()` on `config.memory_backend == "vector"`.
+- **New embedding backend:** subclass `BaseEmbedder` in `resonode/embeddings.py`,
+  return it from `get_embedder()`. Vector memory itself is live —
+  `RESONODE_MEMORY=vector`.
 
 ## Testing
 

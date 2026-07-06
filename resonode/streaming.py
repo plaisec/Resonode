@@ -61,8 +61,10 @@ def make_streaming_sink(on_utterance: Callable[[int, bytes], None],
     importable (and SpeakerStream unit-testable) without it.
 
     INTEGRATION NOTE: py-cord calls Sink.write(data, user) from its decode thread.
-    Depending on version, `data` is decoded PCM bytes or a RawData with
-    `.decoded_data`. We handle both; verify against your installed py-cord.
+    On py-cord >= 2.9 (DAVE receive rework), `data` is a VoiceData with `.pcm`
+    and `user` is a Member/User object (or None before the SSRC is mapped).
+    On older versions, `data` was PCM bytes or a RawData with `.decoded_data`
+    and `user` was an int id. We handle all shapes.
     """
     import discord
 
@@ -84,7 +86,11 @@ def make_streaming_sink(on_utterance: Callable[[int, bytes], None],
 
         def write(self, data, user):
             uid = getattr(user, "id", user)
-            pcm = getattr(data, "decoded_data", None)
+            if uid is None:
+                return  # SSRC not yet mapped to a user; can't attribute audio.
+            pcm = getattr(data, "pcm", None)  # py-cord >= 2.9 VoiceData
+            if pcm is None:
+                pcm = getattr(data, "decoded_data", None)  # legacy RawData
             if pcm is None:
                 try:
                     pcm = bytes(data)

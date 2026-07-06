@@ -7,6 +7,7 @@ transcript file. This is the batch path; the streaming path reuses the same STT
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -18,11 +19,12 @@ from ..transcripts import render_transcript
 
 
 class RecordingCog(commands.Cog):
-    def __init__(self, bot, config, stt, storage):
+    def __init__(self, bot, config, stt, storage, llm=None):
         self.bot = bot
         self.config = config
         self.stt = stt
         self.storage = storage
+        self.llm = llm
         self.active: dict[int, dict] = {}  # guild_id -> {vc, session_id, channel}
         self.rec_dir = Path(config.recordings_dir)
         self.tx_dir = Path(config.transcripts_dir)
@@ -60,11 +62,24 @@ class RecordingCog(commands.Cog):
             await ctx.respond("Please use this in a server.", ephemeral=True)
             return
         state = self.active.get(ctx.guild.id)
-        if state is None:
+        vc = state["vc"] if state else ctx.guild.voice_client
+        if vc is None:
+            self.active.pop(ctx.guild.id, None)
             await ctx.respond("I'm not recording anything right now.", ephemeral=True)
             return
-        state["vc"].stop_recording()  # triggers _on_finish
         await ctx.respond("Leaving the channel and starting transcription...")
+        try:
+            vc.stop_recording()  # triggers _on_finish
+        except Exception as exc:
+            # Recording already dead (dropped connection, kicked, stale state) —
+            # force-disconnect so the bot never gets stuck in the channel.
+            self.active.pop(ctx.guild.id, None)
+            try:
+                await vc.disconnect(force=True)
+            finally:
+                await ctx.send_followup(
+                    f"The recording had already stopped (`{exc}`), so I just disconnected."
+                )
 
     @discord.slash_command(name="ping", description="Check that the bot is responsive.")
     async def ping(self, ctx: discord.ApplicationContext):
@@ -74,7 +89,10 @@ class RecordingCog(commands.Cog):
         guild = channel.guild
         state = self.active.pop(guild.id, None)
         session_id = state["session_id"] if state else None
-        await sink.vc.disconnect()
+        try:
+            await sink.vc.disconnect(force=True)
+        except Exception as exc:
+            print(f"[resonode] disconnect after recording failed: {exc}")
 
         if not sink.audio_data:
             await channel.send("No audio was captured, so there's nothing to transcribe.")
@@ -89,8 +107,10 @@ class RecordingCog(commands.Cog):
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         any_text = False
 
-        for user_id, audio in sink.audio_data.items():
-            member = guild.get_member(user_id)
+        for speaker, audio in sink.audio_data.items():
+            # py-cord >= 2.9 keys audio_data by Member/User; older versions use int ids.
+            user_id = speaker if isinstance(speaker, int) else speaker.id
+            member = guild.get_member(user_id) or (None if isinstance(speaker, int) else speaker)
             if member is not None:
                 name = member.display_name
             else:
@@ -135,3 +155,15 @@ class RecordingCog(commands.Cog):
 
         await status.edit(content="Transcription complete! Here's the transcript:")
         await channel.send(file=discord.File(str(out)))
+        await self._maybe_auto_summary(channel, text)
+
+    async def _maybe_auto_summary(self, channel, transcript_text):
+        """Post an LLM session summary when RESONODE_AUTO_SUMMARY is on."""
+        if not self.config.auto_summary or not getattr(self.llm, "available", False):
+            return
+        try:
+            summary = await asyncio.to_thread(self.llm.summarize, transcript_text)
+            if summary:
+                await channel.send("**Session summary**\n" + summary[:1900])
+        except Exception as exc:
+            print(f"[resonode] auto-summary error: {exc}")

@@ -7,6 +7,13 @@ __pycache__/
 .venv/
 venv/
 
-# Bot output
+# Bot output — recorded voice data & transcripts; never commit (privacy)
 recordings/
 transcripts/
+*.db
+*.wav
+*.log
+
+# Tooling
+.pytest_cache/
+*.egg-info/

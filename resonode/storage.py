@@ -42,8 +42,17 @@ CREATE TABLE IF NOT EXISTS guild_settings (
     value TEXT,
     PRIMARY KEY (guild_id, key)
 );
+CREATE TABLE IF NOT EXISTS embeddings (
+    utterance_id INTEGER NOT NULL,
+    guild_id INTEGER NOT NULL,
+    model TEXT NOT NULL,
+    dim INTEGER NOT NULL,
+    vector BLOB NOT NULL,
+    PRIMARY KEY (utterance_id, model)
+);
 CREATE INDEX IF NOT EXISTS idx_utt_guild ON utterances(guild_id);
 CREATE INDEX IF NOT EXISTS idx_utt_session ON utterances(session_id);
+CREATE INDEX IF NOT EXISTS idx_emb_guild ON embeddings(guild_id, model);
 """
 
 
@@ -95,14 +104,15 @@ class Storage:
         return dict(row) if row else None
 
     # --- utterances ---
-    def add_utterance(self, session_id, guild_id, u: Utterance):
+    def add_utterance(self, session_id, guild_id, u: Utterance) -> int:
         with self._lock:
-            self._conn.execute(
+            cur = self._conn.execute(
                 "INSERT INTO utterances(session_id,guild_id,speaker_id,speaker_name,start_s,end_s,text,lang,created_at)"
                 " VALUES (?,?,?,?,?,?,?,?,?)",
                 (session_id, guild_id, u.speaker_id, u.speaker_name, u.start_s, u.end_s, u.text, u.lang, time.time()),
             )
             self._conn.commit()
+            return cur.lastrowid
 
     def session_utterances(self, session_id):
         cur = self._conn.execute(
@@ -138,3 +148,43 @@ class Storage:
         )
         row = cur.fetchone()
         return row["value"] if row else default
+
+    # --- embeddings (vector memory) ---
+    def unembedded_utterances(self, guild_id, model, limit=256):
+        """Utterances in this guild not yet embedded with `model`."""
+        cur = self._conn.execute(
+            "SELECT u.id, u.text FROM utterances u"
+            " LEFT JOIN embeddings e ON e.utterance_id = u.id AND e.model = ?"
+            " WHERE u.guild_id = ? AND e.utterance_id IS NULL"
+            " ORDER BY u.id LIMIT ?",
+            (model, guild_id, limit),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+    def add_embeddings(self, guild_id, model, dim, pairs):
+        """Bulk-store vectors. `pairs`: iterable of (utterance_id, vector_bytes)."""
+        with self._lock:
+            self._conn.executemany(
+                "INSERT OR REPLACE INTO embeddings(utterance_id,guild_id,model,dim,vector)"
+                " VALUES (?,?,?,?,?)",
+                [(uid, guild_id, model, dim, blob) for uid, blob in pairs],
+            )
+            self._conn.commit()
+
+    def guild_embeddings(self, guild_id, model):
+        """All (utterance_id, vector_bytes) for a guild/model, id-ordered."""
+        cur = self._conn.execute(
+            "SELECT utterance_id, vector FROM embeddings"
+            " WHERE guild_id=? AND model=? ORDER BY utterance_id",
+            (guild_id, model),
+        )
+        return [(r["utterance_id"], r["vector"]) for r in cur.fetchall()]
+
+    def utterances_by_ids(self, ids):
+        """Fetch utterance rows preserving the order of `ids`."""
+        if not ids:
+            return []
+        q = ",".join("?" * len(ids))
+        cur = self._conn.execute(f"SELECT * FROM utterances WHERE id IN ({q})", list(ids))
+        rows = {r["id"]: dict(r) for r in cur.fetchall()}
+        return [rows[i] for i in ids if i in rows]
