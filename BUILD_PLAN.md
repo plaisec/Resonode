@@ -1,7 +1,9 @@
 # Resonode — Build Plan & Architecture
 
-**Status: Phase 1 (foundation) implemented.** This is the map from today's local
-transcription core to the full real-time voice + memory platform in the README.
+**Status: Phases 1–4 built** (foundation, streaming, LLM features, vector-RAG
+memory v1) — see the [Roadmap](#roadmap) below. This is the map from today's
+local transcription core to the full real-time voice + memory platform in the
+README.
 
 ## Design principles
 

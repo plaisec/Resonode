@@ -11,6 +11,9 @@ venv/
 recordings/
 transcripts/
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.wav
 *.log
 

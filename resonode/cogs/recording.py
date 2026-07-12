@@ -54,7 +54,11 @@ class RecordingCog(commands.Cog):
         )
         self.active[ctx.guild.id] = {"vc": vc, "session_id": session_id, "channel": ctx.channel}
         vc.start_recording(discord.sinks.WaveSink(), self._on_finish, ctx.channel)
-        await ctx.respond(f"Joined **{channel.name}** and started recording. Use `/leave` when you're done.")
+        await ctx.respond(
+            f"Joined **{channel.name}** and started recording. Use `/leave` when you're done.\n"
+            f"-# 💡 Best accuracy: set your Discord **Input Profile** to **Voice Isolation** "
+            f"(User Settings → Voice & Video) for cleaner transcripts."
+        )
 
     @discord.slash_command(name="leave", description="Stop recording and post the transcript.")
     async def leave(self, ctx: discord.ApplicationContext):

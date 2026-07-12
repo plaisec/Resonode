@@ -53,7 +53,14 @@ class _ChatLLM(BaseLLM):
         )
 
     def translate(self, text, target_lang):
-        return self._chat(f"Translate the user's text into {target_lang}. Output only the translation.", text)
+        return self._chat(
+            f"Translate the user's text into {target_lang}. The text is a single line of "
+            "noisy speech-to-text output from live voice chat: expect missing punctuation, "
+            "slang, and occasional mis-transcribed words. Translate the intended meaning "
+            "naturally; keep names and untranslatable terms as-is. Output only the "
+            "translation, no commentary.",
+            text,
+        )
 
     def moderate(self, text):
         out = self._chat(

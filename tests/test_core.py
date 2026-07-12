@@ -27,7 +27,6 @@ def _pcm(seconds, amp, rate=16000):
 
 def test_config():
     c = Config.from_env()
-    assert c.prefix
     assert c.stt_backend in ("local", "deepgram")
     assert c.compute_type in ("int8", "float16")
 

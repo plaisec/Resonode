@@ -1,2 +1,2 @@
 """Resonode — real-time voice AI + memory for Discord."""
-__version__ = "0.1.0"
+__version__ = "0.2.1"

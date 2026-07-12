@@ -97,7 +97,10 @@ class StreamingCog(commands.Cog):
         state["watchdog"] = asyncio.create_task(self._watchdog(ctx.guild.id))
         await ctx.respond(
             f"🔴 **Live transcription** started for **{channel.name}** — lines appear here "
-            f"as people speak. `/leave` to stop."
+            f"as people speak. `/leave` to stop.\n"
+            f"-# 💡 Best accuracy: set your Discord **Input Profile** to **Voice Isolation** "
+            f"(User Settings → Voice & Video). It silences your mic between phrases, so "
+            f"lines split cleanly instead of getting chopped mid-sentence."
         )
 
     @discord.slash_command(name="leave", description="Stop live transcription and post the full transcript.")

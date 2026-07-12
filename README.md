@@ -12,7 +12,7 @@
 ![STT](https://img.shields.io/badge/STT-faster--whisper-00A67E)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Status](https://img.shields.io/badge/status-building%20in%20public-orange)
-![Version](https://img.shields.io/badge/version-0.2.0-lightgrey)
+![Version](https://img.shields.io/badge/version-0.2.1-lightgrey)
 
 </div>
 
@@ -165,28 +165,46 @@ notepad .env
 Set `DISCORD_TOKEN` to your token. You can also change `WHISPER_MODEL` (see
 [Model sizes](#model-sizes)).
 
-### 3. Install & run
+### 3. Install (one-time setup)
+
+Run these from the `Resonode` folder in PowerShell:
 
 ```powershell
+# a) Create a virtual environment (a private Python just for this project)
 python -m venv .venv
+
+# b) Install the dependencies into it
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe bot.py        # or just double-click start.bat
+
+# c) REQUIRED for voice: swap in the DAVE-receive build of py-cord (see note below)
+.\.venv\Scripts\python.exe -m pip install --upgrade --force-reinstall "py-cord[voice] @ git+https://github.com/Pycord-Development/pycord@refs/pull/3159/head"
 ```
 
-> **⚠️ py-cord + Discord E2EE (DAVE):** Discord enforced end-to-end encrypted
-> voice in March 2026, and released py-cord (≤ 2.8.0) cannot *receive* voice
-> yet. Until py-cord 2.9 ships, install the DAVE-receive build after the step
-> above:
->
-> ```powershell
-> .\.venv\Scripts\python.exe -m pip install --upgrade --force-reinstall "py-cord[voice] @ git+https://github.com/Pycord-Development/pycord@refs/pull/3159/head"
-> ```
+> **Why step (c)?** Discord enforced end-to-end encrypted voice (DAVE) in March
+> 2026, and the released py-cord (≤ 2.8.0) cannot *receive* voice audio. Without
+> this build the bot starts fine but hears nothing. Once py-cord 2.9 ships, this
+> step goes away.
 
-First launch downloads the Whisper model (~150 MB for `base`) and prints
-`Resonode online as ...` when ready. Then: join a voice channel, run `/join`,
-talk, and run `/leave` to get the transcript. (Global slash commands can take up
-to ~1 hour to appear the first time — set `RESONODE_DEV_GUILD` to your server's
-ID in `.env` for instant registration while testing.)
+### 4. Run the bot
+
+**Double-click `start.bat`** — that's it. Or from PowerShell:
+
+```powershell
+.\start.bat
+```
+
+Both do the same thing: run `bot.py` using the `.venv` Python from step 3.
+There's nothing else to launch — that one console window *is* the bot, and it
+must stay open while the bot is in use. Stop it with `Ctrl+C` (or close the
+window).
+
+On first launch the Whisper model is downloaded (~150 MB for `base`), then the
+console prints `Resonode online as ...` when ready.
+
+Then in Discord: join a voice channel, run `/join`, talk, and `/leave` to get
+the transcript. (Global slash commands can take up to ~1 hour to appear the
+first time — set `RESONODE_DEV_GUILD` to your server's ID in `.env` for instant
+registration while testing.)
 
 ## Model sizes
 
@@ -202,6 +220,50 @@ Set `WHISPER_MODEL` in `.env`. Larger = more accurate but slower / more RAM.
 
 **GPU:** with an NVIDIA GPU (CUDA + cuDNN), set `WHISPER_DEVICE=cuda` in `.env`
 for much faster transcription.
+
+**English-only variants:** if your community speaks English, the `.en` models
+(`base.en`, `small.en`, `distil-small.en`, `distil-medium.en`) are noticeably
+more accurate than the multilingual model of the same size. Pair them with
+`RESONODE_STT_LANGUAGE=en` to skip Whisper's per-chunk language auto-detect,
+which misfires on short clips.
+
+## Audio input tips (Discord settings)
+
+Transcription quality also depends on the audio Discord sends. Ask speakers to
+check **User Settings → Voice & Video → Input Profile**:
+
+- **Voice Isolation** *(recommended)* — Discord's noise suppression gates the
+  mic to near-silence between phrases. Resonode splits utterances by detecting
+  silence in the signal, so this produces clean line breaks and better
+  transcripts.
+- **Studio** — full-bandwidth audio with minimal processing. Slightly better
+  fidelity *if* the speaker is in a quiet room with a good mic — but background
+  noise (fans, keyboards) can keep the signal above the silence threshold, so
+  lines run long and get chopped mid-sentence at the utterance cap.
+- **Custom** — only if you want to hand-pick processing (e.g. noise suppression
+  on, echo cancellation off).
+
+If a speaker stays on Studio and their lines get cut mid-sentence, raise
+`RESONODE_VAD_SILENCE_RMS` in `.env` (default `500`).
+
+**Also worth checking:**
+
+- **Voice channel bitrate** *(server setting — the biggest lever)* — right-click
+  the voice channel → **Edit Channel** → **Bitrate**. This caps the audio quality
+  everyone sends, and therefore what the bot transcribes. Free servers max out at
+  64 kbps; boosts unlock 128/256/384 kbps. Drag it to the max your tier allows.
+- **Voice Activity beats Push-to-Talk** — PTT users routinely clip the first
+  syllable of each line. With Voice Activity, turn *off* automatic input
+  sensitivity and set the threshold manually, just above the room's noise floor —
+  auto sensitivity tends to swallow quiet speech onsets.
+- **On speakers instead of headphones?** Keep **Echo Cancellation on** (Custom
+  profile). Without it, other people's playback leaks into that person's mic
+  stream, and the bot attributes their words to the wrong speaker.
+- **Windows: turn off device-level "audio enhancements"** — Settings → System →
+  Sound → your microphone → Advanced → **Audio enhancements: Off**. Driver/OEM
+  DSP stacks on top of Discord's own processing and produces robotic or muffled
+  audio. Same idea for "Windows Studio Effects" voice focus on Copilot+ laptops:
+  one layer of noise processing (Discord's), not two.
 
 ## Privacy & consent
 

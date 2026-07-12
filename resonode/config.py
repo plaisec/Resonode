@@ -43,7 +43,6 @@ def _float(name: str, default: float) -> float:
 @dataclass
 class Config:
     token: str | None = None
-    prefix: str = "!"
 
     # Speech-to-text
     stt_backend: str = "local"          # "local" | "deepgram"
@@ -87,7 +86,6 @@ class Config:
         base = BASE_DIR
         return cls(
             token=_get("DISCORD_TOKEN"),
-            prefix=_get("COMMAND_PREFIX", "!"),
             stt_backend=(_get("RESONODE_STT", "local") or "local").lower(),
             whisper_model=_get("WHISPER_MODEL", "base"),
             whisper_device=_get("WHISPER_DEVICE", "cpu"),

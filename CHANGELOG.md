@@ -4,6 +4,36 @@ All notable changes to Resonode are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-07-09
+
+### Changed
+- **Translation prompt hardened for speech input** — the LLM is now told each
+  line is noisy live speech-to-text (missing punctuation, slang, occasional
+  mis-transcriptions), so it translates intended meaning instead of rendering
+  transcription errors literally.
+- **`/join` now coaches audio setup** — both batch and streaming modes append
+  a subtext tip recommending Discord's **Voice Isolation** input profile, which
+  gates the mic to silence between phrases so the RMS-based utterance chunker
+  splits lines cleanly.
+
+### Fixed
+- **`resonode.__version__` was stale at `0.1.0`** — now synced with
+  `version.txt` (single source going forward: bump both together).
+
+### Documentation
+- **README Quickstart restructured** — one-time install (venv, deps, DAVE
+  py-cord build with a plain-language explanation of *why* it's required) is
+  now separate from "Run the bot" (`start.bat` is the whole story; the console
+  window is the bot).
+- **New "Audio input tips" README section** — Discord Input Profile guidance
+  (Voice Isolation vs Studio vs Custom and how each interacts with the VAD),
+  voice-channel bitrate as the server-side quality cap, Voice Activity vs
+  Push-to-Talk, echo cancellation for speaker users, and disabling Windows
+  device-level audio enhancements.
+- **English-only Whisper variants documented** — `.en` and `distil-*.en`
+  models recommended for English servers (more accurate at the same size),
+  paired with `RESONODE_STT_LANGUAGE=en`; noted in README and `.env.example`.
+
 ## [0.2.0] — 2026-07-04
 
 ### Fixed
@@ -75,5 +105,6 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   build plan, GitHub Actions CI, Dependabot, issue templates, and contributor /
   security guides.
 
+[0.2.1]: https://github.com/jlanguell/resonode/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jlanguell/resonode/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jlanguell/resonode/releases/tag/v0.1.0
